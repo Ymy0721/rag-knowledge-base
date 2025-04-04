@@ -56,11 +56,6 @@ pip install -r requirements.txt
 python tools/build_index.py --columns 列名1 列名2 --id-column ID列名 --metadata-columns 元数据列1 元数据列2
 ```
 
-以专利数据库为例
-```
-python tools/build_index.py --columns 发明名称 摘要 --metadata-columns 申请号 公开（公告）号 申请日 公开（公告）日 IPC分类号 申请（专利权）人 发明人 申请人邮编 代理人 代理机构 文献类型 申请人所在国（省）
-```
-
 ### 测试查询
 
 ```
@@ -124,9 +119,13 @@ bash scripts/start_service.sh
 ```
 
 **服务配置**
+
+1. 添加rag-knowledge-base服务
 ```bash
 sudo vim /etc/systemd/system/rag-knowledge-base.service
-# 按照如下配置进行修改
+```
+2. 按照如下配置进行修改
+```bash
 [Unit]
 Description=RAG Knowledge Base Service
 After=network.target
@@ -144,8 +143,9 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-
-# 设置开机自启动
+```
+3. 设置开机自启动
+```bash
 sudo systemctl start rag-knowledge-base.service
 sudo systemctl enable rag-knowledge-base.service
 sudo systemctl status rag-knowledge-base.service
@@ -153,9 +153,17 @@ sudo systemctl status rag-knowledge-base.service
 
 
 **nginx配置**
+
+1. 创建配置文件
 ```bash
-sudo vim /etc/nginx/sites-available/yummy-system
-# 添加以下配置
+sudo vim /etc/nginx/sites-available/rag-knowledge-base
+```
+2. 创建符号链接到sites-enabled目录
+```bash
+sudo ln -s /etc/nginx/sites-available/rag-knowledge-base /etc/nginx/sites-enabled/
+```
+3. 按如下配置进行修改
+```nginx
 server {
     listen 80;
     server_name your-server-domain-or-ip;
@@ -170,10 +178,11 @@ server {
         proxy_buffering off;
         proxy_read_timeout 300s;
     }
-    
     # 可能的其他配置...
 }
-# 检查语法错误并重启nginx
+```
+4. 检查语法错误并重启nginx
+```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -182,7 +191,7 @@ sudo systemctl reload nginx
 ```bash
 curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
-  -d '{"query":"自动驾驶","top_k":3}'
+  -d '{"query":"查询文本","top_k":3}'
 ```
 
 
