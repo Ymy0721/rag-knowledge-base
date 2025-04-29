@@ -8,6 +8,7 @@ data:
   raw_file: "data/raw/knowledge_base.xlsx"
   processed_dir: "data/processed"
   vector_store_path: "data/vector_db/faiss_index"
+  documents_filename: "documents.db" # <--- 新增: 指定SQLite数据库文件名
 
 # 嵌入模型配置
 embedding:
@@ -32,16 +33,18 @@ preprocessing:
 
 # FAISS配置
 faiss:
-  index_type: "IndexIVFFlat"  # 比IndexFlatIP效率更高
-  use_gpu: false              # FAISS的GPU支持
-  nlist: 256                  # 对于10万级数据量，可以更大
-  nprobe: 16                  # 查询时探测的单元数，权衡速度与准确性
-  use_mmap: true              # 使用内存映射加载索引（减少内存占用）
+  index_type: "IndexIVFPQ"    # <--- 修改: 使用 PQ 压缩
+  use_gpu: false              # 服务器通常是CPU
+  nlist: 256                  # <--- 修改/新增: IVF 聚类数 (根据数据量调整)
+  pq_m: 64                    # <--- 新增: PQ 子向量数 (512/64=8)
+  pq_nbits: 8                 # <--- 新增: 每个子向量的比特数
+  nprobe: 10                  # 查询时探测的单元数
+  use_mmap: false             # <--- 修改: 禁用内存映射
 
 # 内存管理配置
 memory:
-  lazy_loading: true          # 延迟加载文档内容
-  unload_after_query: true    # 查询后卸载向量数据
+  lazy_loading: true          # 启用文档惰性加载
+  unload_after_query: true    # 查询后卸载文档数据缓存
   documents_batch_size: 1000  # 批量加载文档数量
 
 # API服务配置

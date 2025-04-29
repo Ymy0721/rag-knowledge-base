@@ -10,9 +10,9 @@ source venv/bin/activate
 # 设置工作目录为项目根目录
 cd "$(dirname "$0")/.."
 
-# 检查索引是否已构建
-if [ ! -f "data/vector_db/faiss_index/faiss.index" ]; then
-    echo "警告: 向量索引尚未构建，请先运行索引构建工具或复制预构建的索引"
+# 检查索引和文档数据库是否已构建
+if [ ! -f "data/vector_db/faiss_index/faiss.index" ] || [ ! -f "data/vector_db/faiss_index/documents.db" ]; then
+    echo "警告: 向量索引 (faiss.index) 或文档数据库 (documents.db) 尚未构建，请先运行索引构建工具或复制预构建的文件"
     exit 1
 fi
 
@@ -27,18 +27,24 @@ fi
 
 # 更新配置为低内存模式
 cat > config/server_config.yaml << EOF
-# 服务器端低内存配置
+# 服务器端低内存配置 (覆盖 config.yaml 中的部分设置)
 embedding:
   use_gpu: false
   batch_size: 8
+
 server:
   low_memory_mode: true
-  enable_model_unloading: false  # 不允许卸载模型
+
+faiss:
+  use_mmap: false             # <--- 确认: 禁用 mmap
+  nprobe: 10
+
 memory:
-  lazy_loading: true
-  unload_after_query: true
+  lazy_loading: true          # <--- 确认: 启用惰性加载
+  unload_after_query: true    # <--- 确认: 查询后卸载
+
 api:
-  workers: 1
+  workers: 1                  # 强制单进程
 EOF
 
 # 获取配置中的API端口
@@ -53,6 +59,8 @@ MEM_FREE_MB=$((MEM_FREE / 1024))
 
 echo "系统内存: 总计 ${MEM_TOTAL_MB}MB, 可用 ${MEM_FREE_MB}MB"
 echo "启动低内存模式的API服务，端口: $PORT，仅使用1个工作进程"
+echo "配置: FAISS mmap=false, Lazy Loading=true (SQLite), Unload After Query=true"
 
-# 启动服务
+# 启动服务 (确保 main.py 能正确加载 server_config.yaml 来覆盖默认值)
+# 假设 load_config() 函数已实现合并逻辑
 exec uvicorn src.api.main:app --host localhost --port $PORT --workers 1 --log-level info

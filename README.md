@@ -1,14 +1,17 @@
 # RAG知识库
 
-基于检索增强生成（RAG）的知识库系统，使用FAISS作为向量数据库，使用BGE中文嵌入模型进行文本向量化。
+基于检索增强生成（RAG）的知识库系统，使用FAISS作为向量数据库（支持PQ压缩），SQLite存储文档内容，并使用BGE中文嵌入模型进行文本向量化。
 
 ## 功能特点
 
 - 从Excel表格加载并处理中文知识库数据
 - 使用BGE中文嵌入模型(bge-small-zh-v1.5)进行文本向量化
-- 基于FAISS实现高性能向量检索
+- 基于FAISS实现高性能向量检索 (支持 `IndexIVFPQ` 压缩索引)
+- **使用SQLite存储文档内容，实现高效的按需检索**
 - 提供REST API接口供大模型调用
 - 针对CPU环境优化，内存占用低
+- **支持文档数据惰性加载和查询后卸载，进一步减少常驻内存**
+- ~~支持FAISS索引内存映射 (mmap) 加载~~ (当前配置禁用mmap以优先考虑PQ压缩)
 
 ## 目录结构
 
@@ -18,7 +21,9 @@ rag-knowledge-base/
 ├── data/                     # 数据目录
 │   ├── raw/                  # 原始数据
 │   ├── processed/            # 处理后的数据
-│   └── vector_db/            # FAISS向量数据库存储
+│   └── vector_db/            # FAISS索引和SQLite文档数据库存储
+│       ├── faiss.index       # FAISS 索引文件
+│       └── documents.db      # SQLite 文档数据库文件
 ├── models/                   # 模型目录
 ├── src/                      # 源代码
 ├── tools/                    # 工具脚本
@@ -52,7 +57,8 @@ pip install -r requirements.txt
 
 ### 构建索引
 
-```
+```bash
+# 这会生成 faiss.index 和 documents.db 文件
 python tools/build_index.py --columns 列名1 列名2 --id-column ID列名 --metadata-columns 元数据列1 元数据列2
 ```
 
@@ -151,7 +157,6 @@ sudo systemctl enable rag-knowledge-base.service
 sudo systemctl status rag-knowledge-base.service
 ```
 
-
 **nginx配置**
 
 1. 创建配置文件
@@ -194,11 +199,14 @@ curl -X POST http://localhost:8000/api/query \
   -d '{"query":"查询文本","top_k":3}'
 ```
 
-
 ## 性能优化
 
 - 使用BGE中文模型提供更好的中文文本理解
-- FAISS使用适合CPU的索引类型
+- FAISS使用 `IndexIVFPQ` 压缩索引以减少内存占用和磁盘空间
+- **SQLite存储**: 使用SQLite数据库存储文档，避免一次性加载所有文档到内存，实现高效的按ID检索。
 - 批处理以优化资源使用
 - 调整分块大小以平衡精度和性能
-- 向量归一化以提高相似度计算准确性
+- 向量归一化以提高相似度计算准确性 (如果使用IP度量)
+- **惰性加载 (Lazy Loading)**: 通过 `memory.lazy_loading: true` 配置，服务启动时不加载索引或连接数据库，仅在首次查询时加载索引并按需连接数据库。
+- **查询后卸载 (Unload After Query)**: 配合惰性加载，通过 `memory.unload_after_query: true` 配置，在每次查询结束后释放加载的资源（如果配置了卸载索引，则卸载索引；数据库连接通常按需建立和关闭，此设置影响不大）。
+- ~~内存映射 (Memory Mapping)~~: 当前配置 (`faiss.use_mmap: false`) 禁用mmap，优先使用 `IndexIVFPQ` 进行内存优化。

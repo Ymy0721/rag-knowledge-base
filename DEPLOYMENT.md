@@ -40,7 +40,7 @@ python -c "from sentence_transformers import SentenceTransformer; model = Senten
 
 2. 运行GPU构建脚本:
 ```
-python tools/build_index_gpu.py --gpu --columns 发明名称 摘要 --metadata-columns 发明名称 摘要申请号 公开（公告）号 申请日 公开（公告）日 IPC分类号 申请（专利权）人 发明人 申请人邮编 代理人 代理机构 文献类型 申请人所在国（省）
+python tools/build_index_gpu.py --gpu --columns 发明名称 摘要 --metadata-columns 发明名称 摘要 申请号 公开（公告）号 申请日 公开（公告）日 IPC分类号 申请（专利权）人 发明人 申请人邮编 代理人 代理机构 文献类型 申请人所在国（省）
 ```
 
 3. 脚本将生成两个关键文件:
